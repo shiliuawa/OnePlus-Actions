@@ -300,9 +300,9 @@ jobs:
           cd kernel_workspace/kernel_platform
 
           echo "🛠️ 正在设置KernelSU..."
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/tags/v3.3.0/kernel/setup.sh" | bash -s v3.3.0
           cd KernelSU
-          KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/tiann/KernelSU/commits?sha=main&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 30000)
+          KSU_VERSION="32601"
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Kbuild
 
@@ -553,8 +553,8 @@ jobs:
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
 
           if [ "${{ github.event.inputs.DROIDSPACES }}" == "On" ]; then
-            echo "📦 启用 Droidspaces / 容器支持 (Namespaces, Cgroups, Devtmpfs)..."
-            for cfg in CONFIG_NAMESPACES CONFIG_PID_NS CONFIG_IPC_NS CONFIG_UTS_NS CONFIG_NET_NS CONFIG_USER_NS CONFIG_DEVTMPFS CONFIG_DEVTMPFS_MOUNT CONFIG_CGROUPS CONFIG_OVERLAY_FS; do
+            echo "📦 启用 Droidspaces / 容器支持 (Namespaces, IPC, Cgroups, Devtmpfs)..."
+            for cfg in CONFIG_NAMESPACES CONFIG_SYSVIPC CONFIG_SYSVIPC_SYSCTL CONFIG_POSIX_MQUEUE CONFIG_IPC_NS CONFIG_PID_NS CONFIG_UTS_NS CONFIG_NET_NS CONFIG_USER_NS CONFIG_DEVTMPFS CONFIG_DEVTMPFS_MOUNT CONFIG_CGROUPS CONFIG_OVERLAY_FS; do
               sed -i "/# ${cfg} is not set/d" ./common/arch/arm64/configs/gki_defconfig
               sed -i "/${cfg}=/d" ./common/arch/arm64/configs/gki_defconfig
               echo "${cfg}=y" >> ./common/arch/arm64/configs/gki_defconfig
