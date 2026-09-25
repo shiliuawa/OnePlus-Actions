@@ -147,6 +147,15 @@ on:
           - 'On'
           - 'Off'
         default: 'Off'
+
+      DROIDSPACES:
+        description: "是否启用 Droidspaces / 容器支持 (Namespaces, Cgroups, Devtmpfs)"
+        required: true
+        type: choice
+        options:
+          - 'On'
+          - 'Off'
+        default: 'On'
         
 jobs:
   build:
@@ -537,6 +546,15 @@ jobs:
           echo "⚡ 添加对 Mountify 的支持"
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          if [ "${{ github.event.inputs.DROIDSPACES }}" == "On" ]; then
+            echo "📦 启用 Droidspaces / 容器支持 (Namespaces, Cgroups, Devtmpfs)..."
+            for cfg in CONFIG_NAMESPACES CONFIG_PID_NS CONFIG_IPC_NS CONFIG_UTS_NS CONFIG_NET_NS CONFIG_USER_NS CONFIG_DEVTMPFS CONFIG_DEVTMPFS_MOUNT CONFIG_CGROUPS CONFIG_OVERLAY_FS; do
+              sed -i "/# ${cfg} is not set/d" ./common/arch/arm64/configs/gki_defconfig
+              sed -i "/${cfg}=/d" ./common/arch/arm64/configs/gki_defconfig
+              echo "${cfg}=y" >> ./common/arch/arm64/configs/gki_defconfig
+            done
+          fi
 
           if [ "${{ github.event.inputs.bbg }}" == "On" ]; then
             echo "⚡ 启用BBG中..."
