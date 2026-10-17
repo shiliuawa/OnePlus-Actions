@@ -260,7 +260,15 @@ jobs:
           repo init -u https://github.com/Xiaomichael/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
 
           echo "🔄 同步代码库(使用$(nproc --all)线程)..."
-          repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
+          for i in 1 2 3 4 5; do
+            echo "尝试同步第 $i 次..."
+            if repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync; then
+              echo "✅ 代码库同步成功！"
+              break
+            fi
+            echo "⚠️ 同步失败，等待 15 秒后重试..."
+            sleep 15
+          done
           
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
