@@ -374,8 +374,8 @@ jobs:
           fi
 
           if [ "${{ github.event.inputs.DROIDSPACES }}" = "On" ]; then
-            echo "📦 正在应用 Droidspaces GKI kABI 保护补丁 (SYSVIPC task_struct padding)..."
-            patch -p1 < "$GITHUB_WORKSPACE/droidspaces_patches/001.GKI-below-6.12-fix_sysvipc_kabi_6_7_8.patch" || true
+            echo "📦 正在应用 Droidspaces GKI kABI 保护补丁 (SYSVIPC task_struct padding 1_2_3)..."
+            patch -p1 < "$GITHUB_WORKSPACE/droidspaces_patches/001.GKI-below-6.12-fix_sysvipc_kabi_1_2_3.patch" || true
           fi
 
           if [ "${{ github.event.inputs.UNICODE_BYPASS }}" = "On" ]; then
