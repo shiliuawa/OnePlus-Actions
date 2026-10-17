@@ -374,8 +374,26 @@ jobs:
           fi
 
           if [ "${{ github.event.inputs.DROIDSPACES }}" = "On" ]; then
-            echo "📦 正在应用 Droidspaces GKI kABI 保护补丁 (SYSVIPC task_struct padding 1_2_3)..."
-            patch -p1 < "$GITHUB_WORKSPACE/droidspaces_patches/001.GKI-below-6.12-fix_sysvipc_kabi_1_2_3.patch" || true
+            echo "📦 正在应用 OnePlus Pad 2 Pro 专属 Droidspaces GKI kABI 保护 (SYSVIPC task_struct padding 2_3)..."
+            python3 -c "
+with open('include/linux/sched.h', 'r') as f:
+    c = f.read()
+
+# Comment out original sysvsem & sysvshm in task_struct
+c = c.replace('\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;', '//\tstruct sysv_sem\t\t\tsysvsem;\n//\tstruct sysv_shm\t\t\tsysvshm;')
+
+# Use unoccupied KABI slots 2 and 3 (slot 1 is used by OnePlus dmabuf_info, slots 6-8 by midas/hans)
+target = '\tANDROID_KABI_RESERVE(2);\n\tANDROID_KABI_RESERVE(3);'
+replacement = '#ifdef CONFIG_SYSVIPC\n\tANDROID_KABI_USE(2, struct sysv_sem sysvsem);\n\t_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(3), struct sysv_shm sysvshm);\n#else\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_KABI_RESERVE(3);\n#endif'
+
+if target in c:
+    c = c.replace(target, replacement, 1)
+    with open('include/linux/sched.h', 'w') as f:
+        f.write(c)
+    print('✅ OnePlus Pad 2 Pro kABI 补丁成功应用至 include/linux/sched.h！')
+else:
+    print('⚠️ 未找到目标 KABI RESERVE(2);(3);，打印相关上下文：')
+"
           fi
 
           if [ "${{ github.event.inputs.UNICODE_BYPASS }}" = "On" ]; then
