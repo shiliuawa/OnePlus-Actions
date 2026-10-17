@@ -1,4 +1,4 @@
-name: Build KernelSU Next
+name: Build KernelSU Official
 on:
   workflow_dispatch:
     inputs:
@@ -21,7 +21,7 @@ on:
           - 'sm7635'
           - 'sm7550'
           - 'sm6375'
-        default: 'sm8650'
+        default: 'sm8750'
         
       FEIL:
         description: "手机型号"
@@ -61,7 +61,7 @@ on:
           - 'oneplus_nord_4_b'
           - 'oneplus_nord_ce4_lite_5g'
           - 'oneplus_nord_ce4_b'
-        default: 'oneplus_12_b'
+        default: 'oneplus_pad_2_pro_b'
         
       ANDROID_VERSION:
         description: "内核安卓KMI版本"
@@ -72,7 +72,7 @@ on:
           - 'android14'
           - 'android13'
           - 'android12'
-        default: 'android14'
+        default: 'android15'
         
       KERNEL_VERSION:
         description: "内核版本"
@@ -83,7 +83,7 @@ on:
           - '6.1'
           - '5.15'
           - '5.10'
-        default: '6.1'
+        default: '6.6'
 
       SUSFS:
         description: "是否启用SUSFS"
@@ -92,7 +92,7 @@ on:
         options:
           - 'On'
           - 'Off'
-        default: 'Off'
+        default: 'On'
 
       lz4kd:
         description: "是否启用lz4kd(6.1 关闭时使用 lz4 + zstd; 6.6 关闭时使用 lz4)"
@@ -147,6 +147,15 @@ on:
           - 'On'
           - 'Off'
         default: 'Off'
+
+      DROIDSPACES:
+        description: "是否启用 Droidspaces / 容器支持 (Namespaces, Cgroups, Devtmpfs)"
+        required: true
+        type: choice
+        options:
+          - 'On'
+          - 'Off'
+        default: 'On'
         
 jobs:
   build:
@@ -176,9 +185,9 @@ jobs:
       - name: "⚙️ Setup Cache Env | 设置缓存环境"
         run: |
           echo "🔧 正在设置机型隔离缓存目录..."
-          echo "CCACHE_DIR=$HOME/.ccache_${{ github.event.inputs.FEIL }}_Next" >> $GITHUB_ENV
-          mkdir -p "$HOME/.ccache_${{ github.event.inputs.FEIL }}_Next"
-          echo "✅ 缓存目录已设置: $HOME/.ccache_${{ github.event.inputs.FEIL }}_Next" 
+          echo "CCACHE_DIR=$HOME/.ccache_${{ github.event.inputs.FEIL }}_Official" >> $GITHUB_ENV
+          mkdir -p "$HOME/.ccache_${{ github.event.inputs.FEIL }}_Official"
+          echo "✅ 缓存目录已设置: $HOME/.ccache_${{ github.event.inputs.FEIL }}_Official" 
 
       - name: "🔐 Configure Git | 配置Git账户"
         run: |
@@ -187,31 +196,32 @@ jobs:
           git config --global user.email "2210077278@qq.com"
           echo "✅ Git配置完成"
 
-      - name: "📦 Cache & Install Dependencies | 缓存 & 安装构建依赖"
-        uses: awalsh128/cache-apt-pkgs-action@latest 
-        with: 
-          packages: python3 git curl ccache libelf-dev build-essential flex bison libssl-dev libncurses-dev liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk dos2unix
-          execute_install_scripts: true
+      - name: "📦 Install Dependencies | 安装构建依赖"
+        run: |
+          echo "🔧 正在更新软件包列表并安装依赖..."
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3 git curl ccache libelf-dev build-essential flex bison libssl-dev libncurses-dev liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk dos2unix
+          echo "✅ 依赖安装完成"
          
       - name: "💾 Restore ccache (With SUSFS) | 恢复ccache缓存 (With SUSFS)"
         if: ${{ github.event.inputs.SUSFS == 'On' }}
         uses: actions/cache@v5
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ github.event.inputs.FEIL }}-Next-SUSFS
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ github.event.inputs.FEIL }}-Official-SUSFS
           restore-keys: |
-            ccache-${{ runner.os }}-${{ github.event.inputs.FEIL }}-Next-SUSFS
-            ccache-${{ runner.os }}-Next-SUSFS
+            ccache-${{ runner.os }}-${{ github.event.inputs.FEIL }}-Official-SUSFS
+            ccache-${{ runner.os }}-Official-SUSFS
 
       - name: "💾 Restore ccache (Without SUSFS) | 恢复ccache缓存 (Without SUSFS)"
         if: ${{ github.event.inputs.SUSFS == 'Off' }}
         uses: actions/cache@v5
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ github.event.inputs.FEIL }}-Next-NoSUSFS
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ github.event.inputs.FEIL }}-Official-NoSUSFS
           restore-keys: |
-            ccache-${{ runner.os }}-${{ github.event.inputs.FEIL }}-Next-NoSUSFS
-            ccache-${{ runner.os }}-Next-NoSUSFS
+            ccache-${{ runner.os }}-${{ github.event.inputs.FEIL }}-Official-NoSUSFS
+            ccache-${{ runner.os }}-Official-NoSUSFS
 
       - name: "⚙️ Initialize ccache | 初始化ccache"
         run: |
@@ -227,11 +237,11 @@ jobs:
             else
               echo "ℹ️ ccache已存在，跳过初始化"
             fi
+            # 显示缓存统计
+            ccache -s
           else
             echo "⚠️ 未找到ccache命令，跳过初始化"
           fi
-          # 显示缓存统计
-          ccache -s
           echo "✅ ccache初始化流程完成"
 
       - name: "📥 Install Repo Tool | 安装Repo工具"
@@ -250,7 +260,15 @@ jobs:
           repo init -u https://github.com/Xiaomichael/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
 
           echo "🔄 同步代码库(使用$(nproc --all)线程)..."
-          repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
+          for i in 1 2 3 4 5; do
+            echo "尝试同步第 $i 次..."
+            if repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync; then
+              echo "✅ 代码库同步成功！"
+              break
+            fi
+            echo "⚠️ 同步失败，等待 15 秒后重试..."
+            sleep 15
+          done
           
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
@@ -285,26 +303,25 @@ jobs:
           curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
           bash setup.sh
           
-      - name: "⚡ Setup KernelSU Next | 配置 KernelSU Next"
+      - name: "⚡ Setup KernelSU | 配置 KernelSU"
         run: |
           cd kernel_workspace/kernel_platform
-          # 下载并执行设置脚本
-          echo "🛠️ 正在设置KernelSU Next..."
-          curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/dev-susfs/kernel/setup.sh" | bash -s dev-susfs
 
-          cd KernelSU-Next
-          KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/KernelSU-Next/KernelSU-Next/commits?sha=dev&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 30000)
+          echo "🛠️ 正在设置KernelSU..."
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/tags/v3.3.1/kernel/setup.sh" | bash -s v3.3.1
+          cd KernelSU
+          KSU_VERSION="32680"
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+          sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Kbuild
 
-          echo "✅ KernelSU Next 配置完成"
+          echo "✅ KernelSU 配置完成"
         
       - name: "🔧 Setup Patches | 配置补丁"
         run: |
           cd kernel_workspace
 
           echo "⬇️ 下载所需补丁..."
-          if [ "${{ github.event.inputs.SUSFS }}" == "On" ]; then          
+          if [ "${{ github.event.inputs.SUSFS }}" == "On" ]; then
             git clone https://github.com/cctv18/susfs4oki.git -b oki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
           fi
           git clone https://github.com/Xiaomichael/kernel_patches.git
@@ -316,14 +333,11 @@ jobs:
             cp ../susfs4oki/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
             cp ../susfs4oki/kernel_patches/fs/* ./common/fs/
             cp ../susfs4oki/kernel_patches/include/linux/* ./common/include/linux/
-          else
-            cp ../kernel_patches/sukisu/scope_min_manual_hooks_v1.9.patch ./common/
           fi
 
           cp ../kernel_patches/zram_patches/001-lz4.patch ./common/
           cp ../kernel_patches/zram_patches/lz4armv8.S ./common/lib
           cp ../kernel_patches/zram_patches/002-zstd.patch ./common/
-          
           if [ "${{ github.event.inputs.UNICODE_BYPASS }}" = "On" ]; then
             if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.1" ] || [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.6" ]; then
               cp ../kernel_patches/common/unicode_bypass_fix_6.1+.patch ./common/unicode_bypass_fix.patch
@@ -341,13 +355,45 @@ jobs:
           fi
           
           echo "🔧 应用补丁..."
-          cd ./common
+          if [ "${{ github.event.inputs.SUSFS }}" == "On" ]; then
+            cd ./KernelSU
+            patch -p1 < 10_enable_susfs_for_ksu.patch || true
+          fi
+
+          if [ "${{ github.event.inputs.SUSFS }}" == "On" ]; then
+            cd ../common
+          elif [ "${{ github.event.inputs.SUSFS }}" == "Off" ]; then
+            cd ./common
+          fi
 
           if [ "${{ github.event.inputs.CVE_2026_43499 }}" = "On" ]; then
             echo "🛡️ 正在应用 CVE-2026-43499 rtmutex 修复补丁..."
             bash "$GITHUB_WORKSPACE/security_patch/apply_cve_2026_43499.sh" "${{ github.event.inputs.KERNEL_VERSION }}" "$GITHUB_WORKSPACE/security_patch"
           else
             echo "ℹ️ 跳过 CVE-2026-43499 rtmutex 修复补丁"
+          fi
+
+          if [ "${{ github.event.inputs.DROIDSPACES }}" = "On" ]; then
+            echo "📦 正在应用 OnePlus Pad 2 Pro 专属 Droidspaces GKI kABI 保护 (SYSVIPC task_struct padding 2_3)..."
+            python3 -c "
+with open('include/linux/sched.h', 'r') as f:
+    c = f.read()
+
+# Comment out original sysvsem & sysvshm in task_struct
+c = c.replace('\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;', '//\tstruct sysv_sem\t\t\tsysvsem;\n//\tstruct sysv_shm\t\t\tsysvshm;')
+
+# Use unoccupied KABI slots 2 and 3 (slot 1 is used by OnePlus dmabuf_info, slots 6-8 by midas/hans)
+target = '\tANDROID_KABI_RESERVE(2);\n\tANDROID_KABI_RESERVE(3);'
+replacement = '#ifdef CONFIG_SYSVIPC\n\tANDROID_KABI_USE(2, struct sysv_sem sysvsem);\n\t_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(3), struct sysv_shm sysvshm);\n#else\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_KABI_RESERVE(3);\n#endif'
+
+if target in c:
+    c = c.replace(target, replacement, 1)
+    with open('include/linux/sched.h', 'w') as f:
+        f.write(c)
+    print('✅ OnePlus Pad 2 Pro kABI 补丁成功应用至 include/linux/sched.h！')
+else:
+    print('⚠️ 未找到目标 KABI RESERVE(2);(3);，打印相关上下文：')
+"
           fi
 
           if [ "${{ github.event.inputs.UNICODE_BYPASS }}" = "On" ]; then
@@ -373,6 +419,7 @@ jobs:
             cp ../../SukiSU_patch/other/zram/zram_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4k_oplus.patch ./
             patch -p1 -F 3 < lz4k_oplus.patch || true
           fi
+
           if [ "${{ github.event.inputs.SUSFS }}" == "On" ]; then
             echo "📦 应用SUSFS补丁..."
             fake_patched=0
@@ -476,9 +523,10 @@ jobs:
             cp ../../kernel_patches/69_hide_stuff.patch ./
             patch -p1 -F 3 < 69_hide_stuff.patch
             echo "✅ SUSFS patches applied"
-          else
-            echo "📦 应用MANUAL_HOOK补丁..."
-            patch -p1 --fuzz=3 < scope_min_manual_hooks_v1.9.patch
+
+            # 修复 susfs4oki 在 6.6 上由于 unused variable/label 触发的编译报错
+            sed -i 's/struct dentry \*dentry;//g' ./fs/proc/task_mmu.c 2>/dev/null || true
+            sed -i '/bypass:/d' ./fs/proc/task_mmu.c 2>/dev/null || true
           fi
 
           echo "✅ 所有补丁应用完成"
@@ -515,8 +563,8 @@ jobs:
 
           # Add KSU configuration settings
           echo "📦 启用 KSU 支持..."
-          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig  
-            
+          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+
           if [ "${{ github.event.inputs.SUSFS }}" == "On" ]; then
             echo "📦 启用 SUSFS 功能..."
             echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -529,15 +577,20 @@ jobs:
             echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./common/arch/arm64/configs/gki_defconfig
-          else 
-            echo "📦 启用 MANUAL_HOOK..."
-            echo "CONFIG_KSU_SUSFS=n" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           fi
 
           echo "⚡ 添加对 Mountify 的支持"
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          if [ "${{ github.event.inputs.DROIDSPACES }}" == "On" ]; then
+            echo "📦 启用 Droidspaces / 容器支持 (GKI kABI-Safe configs)..."
+            for cfg in CONFIG_NAMESPACES CONFIG_SYSVIPC CONFIG_SYSVIPC_SYSCTL CONFIG_POSIX_MQUEUE CONFIG_IPC_NS CONFIG_PID_NS CONFIG_UTS_NS CONFIG_NET_NS CONFIG_USER_NS CONFIG_DEVTMPFS CONFIG_DEVTMPFS_MOUNT CONFIG_CGROUPS CONFIG_OVERLAY_FS CONFIG_NETFILTER_XT_MATCH_ADDRTYPE; do
+              sed -i "/# ${cfg} is not set/d" ./common/arch/arm64/configs/gki_defconfig
+              sed -i "/${cfg}=/d" ./common/arch/arm64/configs/gki_defconfig
+              echo "${cfg}=y" >> ./common/arch/arm64/configs/gki_defconfig
+            done
+          fi
 
           if [ "${{ github.event.inputs.bbg }}" == "On" ]; then
             echo "⚡ 启用BBG中..."
@@ -606,6 +659,10 @@ jobs:
           # 跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
           echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
 
+          # 禁用 WERROR 以免第三方补丁中的未使用变量/标签警告打断编译
+          echo "CONFIG_WERROR=n" >> ./common/arch/arm64/configs/gki_defconfig
+          sed -i 's/CONFIG_WERROR=y/CONFIG_WERROR=n/' ./common/arch/arm64/configs/gki_defconfig
+
           echo "⚡ Remove check_defconfig"
           sed -i 's/check_defconfig//' ./common/build.config.gki
           echo "✅ 内核配置更新完成"
@@ -623,14 +680,14 @@ jobs:
             export PATH="/usr/lib/ccache:$PATH"
             sudo apt install libelf-dev
             cd kernel_workspace/kernel_platform/common
-            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all
+            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS="-O2 -Wno-error" gki_defconfig all
 
           elif [ "${{ github.event.inputs.KERNEL_VERSION }}" == "6.6" ]; then
             export PATH="/usr/lib/ccache:$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH" 
             export PATH="/usr/lib/ccache:$PATH"
             sudo apt install libelf-dev
             cd kernel_workspace/kernel_platform/common
-            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS+=-O2  gki_defconfig all
+            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS="-O2 -Wno-error" gki_defconfig all
 
           elif [ "${{ github.event.inputs.KERNEL_VERSION }}" == "5.15" ]; then
             export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r450784e/bin:$PATH"
@@ -668,18 +725,18 @@ jobs:
             cp "$image_path" ./AnyKernel3/Image
             cp "$image_path" kernel_workspace/kernel_platform/out/Final-Image-Find/Image
           fi
-
+          
       - name: "🧠 Set Artifact Name | 设置产物名称"
         id: set_name
         run: |
           if [ "${{ github.event.inputs.lz4kd }}" = "On" ]; then
-            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_Next_lz4kd_${{ env.KSUVER }}"
+            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_lz4kd_${{ env.KSUVER }}"
           elif [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.1" ]; then
-            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_Next_lz4_zstd_${{ env.KSUVER }}"
+            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_lz4_zstd_${{ env.KSUVER }}"
           elif [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.6" ]; then
-            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_Next_lz4_${{ env.KSUVER }}"
+            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_lz4_${{ env.KSUVER }}"
           else
-            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_Next_${{ env.KSUVER }}"
+            BASE_NAME="${{ github.event.inputs.FEIL }}_KernelSU_${{ env.KSUVER }}"
           fi
           
           if [ "${{ github.event.inputs.SUSFS }}" = "On" ]; then
@@ -689,47 +746,22 @@ jobs:
           fi
           
           echo "ARTIFACT_NAME=${FINAL_NAME}" >> $GITHUB_OUTPUT
-         
+
       - name: "📤 Upload AnyKernel3 | 上传 AnyKernel3"
         uses: actions/upload-artifact@v7
         with:
-         name: ${{ steps.set_name.outputs.ARTIFACT_NAME }}
-         path: ./AnyKernel3/*
+          name: ${{ steps.set_name.outputs.ARTIFACT_NAME }}
+          path: ./AnyKernel3/*
 
       - name: "📝 Find zram.ko & crypto_zstdn.ko | 查找 zram.ko & crypto_zstdn.ko"
+        # if: ${{ github.event.inputs.lz4kd == 'On' }}
         run: |
           find -name zram.ko
           find -name crypto_zstdn.ko
           
       - name: "📤 Upload zram.ko | 上传 zram.ko"
+        # if: ${{ github.event.inputs.lz4kd == 'On' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ github.event.inputs.FEIL }}_zram.ko
           path: ./kernel_workspace/kernel_platform/common/out/drivers/block/zram/zram.ko
-
-      # - name: "🤖 Get bot script | 获取 bot 脚本"
-        # uses: actions/checkout@v6
-        # with:
-          # path: bot
-
-      # - name: "📤 Upload to telegram | 上传至Telegram群组"
-        # run: |
-          # if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            # echo "📤 正在上传到Telegram..."
-            # cd AnyKernel3
-            # zip -q -r "../${{ steps.set_name.outputs.ARTIFACT_NAME }}.zip" ./*
-            # cd ..
-            # pip3 install telethon
-            # python3 ./bot/script/buildbot.py "./${{ steps.set_name.outputs.ARTIFACT_NAME }}.zip"
-            # echo "✅ 文件已上传到Telegram"
-          # fi
-        # env:
-          # CHATID: ${{secrets.CHATID}}
-          # BOT_TOKEN: ${{secrets.BOT_TOKEN}}
-          # MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
-          # KernelVer: ${{ github.event.inputs.ANDROID_VERSION}}-${{ github.event.inputs.KERNEL_VERSION }}
-          # DEVICE: ${{ github.event.inputs.FEIL }}
-          # KPM: Not Support
-          # LZ4KD: ${{ github.event.inputs.lz4kd }}
-          # BBR: ${{ github.event.inputs.bbr }}
-          # KSU_VAR: "NEXT"
