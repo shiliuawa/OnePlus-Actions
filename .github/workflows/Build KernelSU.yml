@@ -1,9 +1,6 @@
 name: Build KernelSU Official
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - Build
     inputs:
     
       CPU:
