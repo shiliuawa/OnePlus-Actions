@@ -11,14 +11,18 @@
  #endif
  #ifdef CONFIG_DETECT_HUNG_TASK
  	unsigned long			last_switch_count;
-@@ -1532,6 +1532,11 @@
+@@ -1532,8 +1532,15 @@
  	ANDROID_KABI_USE(1, struct task_dma_buf_info *dmabuf_info);
 +#ifdef CONFIG_SYSVIPC
 +	ANDROID_KABI_USE(2, struct sysv_sem sysvsem);
-+	_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(3), struct sysv_shm sysvshm);
++	_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(3); ANDROID_KABI_RESERVE(4), struct sysv_shm sysvshm);
 +#else
  	ANDROID_KABI_RESERVE(2);
  	ANDROID_KABI_RESERVE(3);
++	ANDROID_KABI_RESERVE(4);
 +#endif
  #endif
- 	ANDROID_KABI_RESERVE(4);
+-	ANDROID_KABI_RESERVE(4);
+ 	ANDROID_KABI_RESERVE(5);
+ 	ANDROID_KABI_RESERVE(6);
+ 	ANDROID_KABI_RESERVE(7);
