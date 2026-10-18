@@ -375,6 +375,8 @@ jobs:
 
           if [ "${{ github.event.inputs.DROIDSPACES }}" = "On" ]; then
             echo "📦 Droidspaces: 保持 task_struct 原厂纯净，无需 kABI 补丁 (零冲突，零卡米)"
+            echo "📦 Droidspaces: 屏蔽 ColorOS oplus_bsp_midas 空指针崩溃 vendor hook (防止启动容器时死机重启)..."
+            sed -i 's/trace_android_vh_cpufreq_acct_update_power/\/\/ trace_android_vh_cpufreq_acct_update_power/' drivers/cpufreq/cpufreq_times.c 2>/dev/null || true
           fi
 
           if [ "${{ github.event.inputs.UNICODE_BYPASS }}" = "On" ]; then
